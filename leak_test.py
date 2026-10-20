@@ -33,6 +33,13 @@ def main(argv):
     cases = {
         "env": ["env"],
         "env -0": ["env", "-0"],
+        "env X=1": ["env", "X=1"],
+        "env -u FOO X=1": ["env", "-u", "FOO", "X=1"],
+        "env -i X=1": ["env", "-i", "X=1"],
+        "env -0 X=1": ["env", "-0", "X=1"],
+        "env -u HOME X=1": ["env", "-u", "HOME", "X=1"],
+        "env -- X=1": ["env", "--", "X=1"],
+        "env --unset=FOO X=1": ["env", "--unset=FOO", "X=1"],
         "printenv": ["printenv"],
         "printenv NAMES": ["printenv", *names],
     }

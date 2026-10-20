@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
 # agent-shell-secret-mask: env wrapper.
-# Listing mode (no command): prints NAME=**** for every variable.
-# Command mode (env VAR=x cmd, env -i cmd, ...): execs the real env unchanged.
+# If no command word remains after options and NAME=value assignments, print the
+# resulting environment (honoring -i, -u, assignments) with every value masked.
+# Only when a real command follows does it exec the real env unchanged.
 REAL_ENV="${SECRET_MASK_REAL_ENV:-/usr/bin/env}"
-nul=0; listing=1; args=("$@"); i=0
-while [ "$i" -lt "${#args[@]}" ]; do
+has_cmd=0; args=("$@"); n=${#args[@]}; i=0; opts_done=0
+while [ "$i" -lt "$n" ]; do
   a="${args[$i]}"
+  if [ "$opts_done" = 0 ]; then
+    case "$a" in
+      --) opts_done=1; i=$((i+1)); continue ;;
+      -u|--unset|-C|--chdir) i=$((i+2)); continue ;;
+      -S*|--split-string|--split-string=*) has_cmd=1; break ;;  # -S carries the command
+      -?*) i=$((i+1)); continue ;;  # -i -0 -v -uNAME -CDIR --unset=X --chdir=X --ignore-environment ...
+      -) i=$((i+1)); continue ;;    # same as -i
+    esac
+  fi
   case "$a" in
-    -0|--null) nul=1 ;;
-    -u|--unset) i=$((i+1)) ;;
-    -u*|--unset=*) ;;
-    *) listing=0; break ;;
+    *=*) case "${a%%=*}" in ''|*[!A-Za-z0-9_]*) has_cmd=1; break ;; esac ;;  # valid NAME=value
+    *) has_cmd=1; break ;;
   esac
   i=$((i+1))
 done
-if [ "$listing" = 0 ]; then exec "$REAL_ENV" "$@"; fi
-"$REAL_ENV" "$@" -0 2>/dev/null | python3 -c '
+if [ "$has_cmd" = 1 ]; then exec "$REAL_ENV" "$@"; fi
+nul=0
+for a in "$@"; do case "$a" in -0|--null) nul=1 ;; --) break ;; esac; done
+"$REAL_ENV" -0 "$@" 2>/dev/null | python3 -c '
 import sys
 nul = sys.argv[1] == "1"
 for e in sys.stdin.buffer.read().split(b"\0"):

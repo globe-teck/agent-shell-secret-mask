@@ -23,8 +23,9 @@ Background: public discussion at
 ## What it does
 | Command | Result |
 |---|---|
-| `env`, `env -0`, `env -u NAME` | every variable listed as `NAME=****` (names only) |
-| `env VAR=x cmd`, `env -i cmd`, `env cmd` | passed through to `/usr/bin/env` unchanged |
+| `env`, `env -0`, `env -u NAME`, `env -i` | every variable listed as `NAME=****` (names only) |
+| `env X=1`, `env -u FOO X=1`, `env -i X=1`, `env -0 X=1`, `env -- X=1` | no command, so the resulting environment (with -i/-u and the assignments applied) is listed masked |
+| `env VAR=x cmd`, `env -i cmd`, `env -u HOME cmd`, `env -S '...'` | a real command follows, so passed through to `/usr/bin/env` unchanged |
 | `printenv` | same masked listing |
 | `printenv NAME` | `NAME=<set, masked>` or `NAME=<not set>`, exit 1, no value |
 
@@ -33,6 +34,10 @@ Background: public discussion at
 - `cat /proc/self/environ`, `export -p`, `declare -x`, `set`.
 - Deliberate reads: `echo "$TOKEN"`, `python -c 'import os; print(os.environ)'`.
 - Programs that log their own config or crash dumps.
+- Running a command that prints the environment: `env X=1 /usr/bin/env`, `env sh -c set`, `env -S 'printenv'`.
+  The wrapper only masks when `env` itself would do the listing.
+- Unusual GNU options it does not know that take a separate argument (it treats them as flags);
+  report one if you find it.
 
 ## Recommended real fix
 Do not keep long-lived secrets in the shell environment at all. Give each script its own
@@ -57,7 +62,7 @@ environment, not in `.bashrc`). Check with `command -v env`.
 python3 leak_test.py            # tests ./bin
 python3 leak_test.py ~/.local/bin
 ```
-It runs `env`, `env -0`, `printenv` and `printenv <every name>`, then looks for each real value (6+
+It runs `env`, `env -0`, assignment-only forms (`env X=1`, `env -u FOO X=1`, `env -i X=1`, `env -0 X=1`, ...), `printenv` and `printenv <every name>`, then looks for each real value (6+
 chars) in the output. It reports only `NAME (len=N sha256=abcd1234)`, never the value. Exit 1 on a leak.
 
 ## Tests

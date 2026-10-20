@@ -62,3 +62,43 @@ def test_install(tmp_path):
     assert r.returncode == 0
     assert os.access(tmp_path / "env", os.X_OK)
     assert os.access(tmp_path / "printenv", os.X_OK)
+
+
+import pytest
+
+
+@pytest.mark.parametrize("args", [
+    ["env", "X=1"],
+    ["env", "-u", "FOO", "X=1"],
+    ["env", "-0", "X=1"],
+    ["env", "--", "X=1"],
+    ["env", "--unset=FOO", "X=1"],
+    ["env", "-uFOO", "X=1", "Y=2"],
+])
+def test_assignments_without_command_are_masked(args):
+    r = run(args)
+    entries = [e for e in r.stdout.replace("\0", "\n").split("\n") if e]
+    assert FAKE_VAL not in r.stdout + r.stderr
+    assert "FAKE_TOKEN=****" in entries
+    assert "X=****" in entries
+    assert all(e.endswith("=****") for e in entries)
+
+
+def test_env_i_assignment_no_command_masked():
+    r = run(["env", "-i", "X=1"])
+    assert r.stdout.split() == ["X=****"]
+
+
+def test_env_u_home_masked_listing():
+    r = run(["env", "-u", "HOME", "X=1"])
+    assert "HOME=" not in r.stdout and FAKE_VAL not in r.stdout
+
+
+def test_assignment_then_command_runs():
+    r = run(["env", "X=1", "sh", "-c", "echo $X"])
+    assert r.stdout.strip() == "1"
+
+
+def test_unset_then_command_runs():
+    r = run(["env", "-u", "HOME", "sh", "-c", "echo ${HOME-unset}"])
+    assert r.stdout.strip() == "unset"
