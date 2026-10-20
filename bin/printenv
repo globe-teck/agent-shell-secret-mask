@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# agent-shell-secret-mask: printenv wrapper.
+# No args: same masked listing as `env`. With names: refuses to print values.
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ $# -eq 0 ]; then exec "$here/env"; fi
+rc=0
+for n in "$@"; do
+  case "$n" in -*) continue ;; esac
+  if [ -n "${!n+x}" ]; then echo "$n=<set, masked>"; else echo "$n=<not set>"; fi
+  rc=1
+done
+echo "printenv: refusing to print values (agent-shell-secret-mask)" >&2
+exit $rc

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# agent-shell-secret-mask: env wrapper.
+# Listing mode (no command): prints NAME=**** for every variable.
+# Command mode (env VAR=x cmd, env -i cmd, ...): execs the real env unchanged.
+REAL_ENV="${SECRET_MASK_REAL_ENV:-/usr/bin/env}"
+nul=0; listing=1; args=("$@"); i=0
+while [ "$i" -lt "${#args[@]}" ]; do
+  a="${args[$i]}"
+  case "$a" in
+    -0|--null) nul=1 ;;
+    -u|--unset) i=$((i+1)) ;;
+    -u*|--unset=*) ;;
+    *) listing=0; break ;;
+  esac
+  i=$((i+1))
+done
+if [ "$listing" = 0 ]; then exec "$REAL_ENV" "$@"; fi
+"$REAL_ENV" "$@" -0 2>/dev/null | python3 -c '
+import sys
+nul = sys.argv[1] == "1"
+for e in sys.stdin.buffer.read().split(b"\0"):
+    if not e:
+        continue
+    name = e.split(b"=", 1)[0].decode(errors="replace")
+    sys.stdout.write(name + "=****" + ("\0" if nul else "\n"))
+' "$nul"
