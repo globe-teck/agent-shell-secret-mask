@@ -71,5 +71,10 @@ pip install -r requirements.txt && pytest -q
 ```
 Tests use a fake token in a clean environment.
 
+## Authorship
+
+Built with AI coding assistance. I defined the requirements, ran the tests, and reviewed the changes.
+
 ## License
-MIT
+
+MIT. See [LICENSE](LICENSE).
